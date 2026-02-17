@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mäe Auto Mäng</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .game-info {
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .level-info {
+            flex: 1;
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+            cursor: none;
+        }
+
+        .controls {
+            background: #f0f0f0;
+            padding: 15px 20px;
+            font-size: 14px;
+            text-align: center;
+            color: #333;
+        }
+
+        .menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            text-align: center;
+            display: none;
+        }
+
+        .menu.active {
+            display: block;
+        }
+
+        .menu h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+
+        .menu p {
+            color: #666;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .menu-buttons {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #764ba2;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        .game-over-menu h2 {
+            color: #d32f2f;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .game-over-menu h3 {
+            color: #333;
+            font-size: 20px;
+            margin: 10px 0;
+        }
+
+        .game-won-menu h2 {
+            color: #388e3c;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .level-select {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .level-btn {
+            padding: 15px;
+            font-size: 14px;
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .level-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .level-btn.completed {
+            background: #388e3c;
+            color: white;
+            border-color: #388e3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    <div class="game-container">
+        <div class="game-info">
+            <div class="level-info">
+                TASE <span id="levelNumber">1</span>
+            </div>
+            <div class="stats">
+                <div>KIIRUS: <span id="speed">0</span> km/h</div>
+                <div>EDU: <span id="progress">0</span>%</div>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="controls">
+            ⬆ W - Edasi | ⬇ S - Tagasi | ⬅ A - Vasak | ➡ D - Parem | SPACE - Pidurid
+        </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div class="menu active" id="startMenu">
+        <h1>🏎️ MÄE AUTO MÄNG</h1>
+        <p>Juhtige autot WASD klahvidega</p>
+        <p>Jõudke lõpp-joonele igal tasandil!</p>
+        <div class="menu-buttons">
+            <button onclick="game.startGame()">ALUSTA MÄNGU</button>
+        </div>
+    </div>
+
+    <!-- Level Select Menu -->
+    <div class="menu" id="levelSelectMenu">
+        <h1>VALI TASE</h1>
+        <div class="level-select" id="levelButtons"></div>
+        <div class="menu-buttons">
+            <button onclick="game.backToStart()">TAGASI</button>
+        </div>
+    </div>
+
+    <!-- Game Over Menu -->
+    <div class="menu" id="gameOverMenu">
+        <div class="game-over-menu">
+            <h2>❌ MÄNG LÄBI!</h2>
+            <h3>Kukkusite mäest alla!</h3>
+            <p>Tase: <span id="gameOverLevel">1</span></p>
+        </div>
+        <div class="menu-buttons">
+            <button onclick="game.restartLevel()">PROOVI UUESTI</button>
+            <button onclick="game.backToLevelSelect()">TASEME VALIK</button>
+        </div>
+    </div>
+
+    <!-- Game Won Menu -->
+    <div class="menu" id="gameWonMenu">
+        <div class="game-won-menu">
+            <h2>✅ TASE LÕPETATUD!</h2>
+            <p>Aeg: <span id="gameTime">0</span>s</p>
+            <p id="nextLevelText"></p>
+        </div>
+        <div class="menu-buttons" id="wonMenuButtons">
+            <button onclick="game.nextLevel()">JÄRGMINE TASE</button>
+            <button onclick="game.backToLevelSelect()">TASEME VALIK</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = Math.min(window.innerHeight - 180, 700);
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+
+        class Car {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 30;
+                this.height = 50;
+                this.angle = 0;
+                this.velocity = 0;
+                this.maxVelocity = 8;
+                this.acceleration = 0.3;
+                this.friction = 0.96;
+                this.turnSpeed = 0.08;
+                this.wheelRotation = 0;
+            }
+
+            update(keys) {
+                // Steering
+                if (keys['a'] || keys['A']) {
+                    this.angle -= this.turnSpeed;
+                }
+                if (keys['d'] || keys['D']) {
+                    this.angle += this.turnSpeed;
+                }
+
+                // Acceleration
+                if (keys['w'] || keys['W']) {
+                    this.velocity = Math.min(this.velocity + this.acceleration, this.maxVelocity);
+                }
+                if (keys['s'] || keys['S']) {
+                    this.velocity = Math.max(this.velocity - this.acceleration, -this.maxVelocity * 0.6);
+                }
+                if (keys[' ']) {
+                    this.velocity *= 0.85; // Braking
+                }
+
+                // Friction
+                this.velocity *= this.friction;
+
+                // Movement
+                this.x += Math.cos(this.angle) * this.velocity;
+                this.y += Math.sin(this.angle) * this.velocity;
+
+                this.wheelRotation += this.velocity * 0.3;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Car body
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+
+                // Car windows
+                ctx.fillStyle = '#3498db';
+                ctx.fillRect(-this.width / 2 + 2, -this.height / 2 + 5, this.width - 4, 12);
+
+                // Wheels
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(-this.width / 2 - 5, -this.height / 2 + 8, 10, 8);
+                ctx.fillRect(this.width / 2 - 5, -this.height / 2 + 8, 10, 8);
+                ctx.fillRect(-this.width / 2 - 5, this.height / 2 - 16, 10, 8);
+                ctx.fillRect(this.width / 2 - 5, this.height / 2 - 16, 10, 8);
+
+                ctx.restore();
+            }
+
+            getCorners() {
+                const corners = [];
+                const cos = Math.cos(this.angle);
+                const sin = Math.sin(this.angle);
+                
+                const offsets = [
+                    [-this.width / 2, -this.height / 2],
+                    [this.width / 2, -this.height / 2],
+                    [this.width / 2, this.height / 2],
+                    [-this.width / 2, this.height / 2]
+                ];
+
+                for (let offset of offsets) {
+                    const rotX = offset[0] * cos - offset[1] * sin;
+                    const rotY = offset[0] * sin + offset[1] * cos;
+                    corners.push({
+                        x: this.x + rotX,
+                        y: this.y + rotY
+                    });
+                }
+
+                return corners;
+            }
+        }
+
+        class Terrain {
+            constructor(level) {
+                this.points = this.generateTerrain(level);
+                this.width = 100;
+            }
+
+            generateTerrain(level) {
+                const points = [];
+                const baseAmplitude = 40 + level * 15;
+                const baseFrequency = 0.008 - level * 0.001;
+
+                // Make levels progressively longer
+                const totalWidth = Math.max(canvas.width * (3 + level * 0.8), canvas.width + 1000);
+
+                for (let i = 0; i < totalWidth; i += 20) {
+                    const height = canvas.height - 150 -
+                        Math.sin(i * baseFrequency) * baseAmplitude -
+                        Math.cos(i * baseFrequency * 2) * baseAmplitude * 0.5 -
+                        (i * 0.08); // gentle slope
+                    points.push({ x: i, y: height });
+                }
+                return points;
+            }
+
+            draw(ctx) {
+                // Terrain only (sky is drawn globally in game loop so it stays fixed)
+                if (this.points.length === 0) return;
+
+                ctx.fillStyle = '#8B7355';
+                ctx.beginPath();
+                ctx.moveTo(this.points[0].x, this.points[0].y);
+
+                for (let point of this.points) {
+                    ctx.lineTo(point.x, point.y);
+                }
+
+                ctx.lineTo(this.points[this.points.length - 1].x, canvas.height + 200);
+                ctx.lineTo(this.points[0].x, canvas.height + 200);
+                ctx.fill();
+
+                // Terrain pattern lines
+                ctx.strokeStyle = '#6B5344';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < this.points.length - 1; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.points[i].x, this.points[i].y);
+                    ctx.lineTo(this.points[i + 1].x, this.points[i + 1].y);
+                    ctx.stroke();
+                }
+            }
+
+            getHeightAt(x) {
+                for (let i = 0; i < this.points.length - 1; i++) {
+                    if (this.points[i].x <= x && x <= this.points[i + 1].x) {
+                        const p1 = this.points[i];
+                        const p2 = this.points[i + 1];
+                        const ratio = (x - p1.x) / (p2.x - p1.x);
+                        return p1.y + (p2.y - p1.y) * ratio - 25;
+                    }
+                }
+                return canvas.height;
+            }
+
+            getAngleAt(x) {
+                for (let i = 0; i < this.points.length - 1; i++) {
+                    if (this.points[i].x <= x && x <= this.points[i + 1].x) {
+                        const p1 = this.points[i];
+                        const p2 = this.points[i + 1];
+                        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                    }
+                }
+                return 0;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.levels = 5;
+                this.currentLevel = 0;
+                this.car = null;
+                this.terrain = null;
+                this.keys = {};
+                this.gameRunning = false;
+                this.gamePaused = false;
+                this.startTime = 0;
+                this.levelStartTime = 0;
+                this.completedLevels = new Set();
+                this.cameraX = 0;
+                this.finishLine = 0;
+
+                document.addEventListener('keydown', (e) => this.keys[e.key] = true);
+                document.addEventListener('keyup', (e) => this.keys[e.key] = false);
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.gameRunning) {
+                        this.togglePause();
+                    }
+                });
+            }
+
+            getLevelConfig(level) {
+                const configs = [
+                    { maxVelocity: 8, friction: 0.96, turnSpeed: 0.08, cameraOffset: -150 },
+                    { maxVelocity: 8.5, friction: 0.95, turnSpeed: 0.08, cameraOffset: -150 },
+                    { maxVelocity: 9, friction: 0.94, turnSpeed: 0.07, cameraOffset: -100 },
+                    { maxVelocity: 9.5, friction: 0.93, turnSpeed: 0.07, cameraOffset: -100 },
+                    { maxVelocity: 10, friction: 0.92, turnSpeed: 0.06, cameraOffset: -50 }
+                ];
+                return configs[Math.min(level, configs.length - 1)];
+            }
+
+            startGame() {
+                this.hideMenu('startMenu');
+                this.showMenu('levelSelectMenu');
+                this.initializeLevelSelect();
+            }
+
+            initializeLevelSelect() {
+                const container = document.getElementById('levelButtons');
+                container.innerHTML = '';
+                
+                for (let i = 0; i < this.levels; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'level-btn';
+                    if (this.completedLevels.has(i)) {
+                        btn.classList.add('completed');
+                    }
+                    btn.textContent = `TASE ${i + 1}`;
+                    btn.onclick = () => this.loadLevel(i);
+                    container.appendChild(btn);
+                }
+            }
+
+            loadLevel(levelIndex) {
+                this.currentLevel = levelIndex;
+                this.hideMenu('levelSelectMenu');
+                
+                const config = this.getLevelConfig(levelIndex);
+                
+                this.car = new Car(150, canvas.height - 300);
+                this.car.maxVelocity = config.maxVelocity;
+                this.car.friction = config.friction;
+                this.car.turnSpeed = config.turnSpeed;
+                
+                this.terrain = new Terrain(levelIndex);
+                this.finishLine = this.terrain.points[this.terrain.points.length - 1].x - 100;
+                
+                this.gameRunning = true;
+                this.gamePaused = false;
+                this.levelStartTime = Date.now();
+                
+                document.getElementById('levelNumber').textContent = levelIndex + 1;
+                
+                this.gameLoop();
+            }
+
+            gameLoop() {
+                if (this.gamePaused) {
+                    requestAnimationFrame(() => this.gameLoop());
+                    return;
+                }
+
+                if (!this.gameRunning) {
+                    return;
+                }
+
+                // Update car
+                this.car.update(this.keys);
+
+                // Terrain collision
+                const terrainY = this.terrain.getHeightAt(this.car.x);
+                const terrainAngle = this.terrain.getAngleAt(this.car.x);
+
+                if (this.car.y > terrainY + 50) {
+                    // Fell off the mountain
+                    this.endGame(false);
+                    return;
+                }
+
+                // Place car on terrain
+                this.car.y = terrainY;
+                this.car.angle = terrainAngle + (this.keys['a'] || this.keys['A'] ? -0.05 : 0) + (this.keys['d'] || this.keys['D'] ? 0.05 : 0);
+
+                // Check if finished
+                if (this.car.x >= this.finishLine) {
+                    this.endGame(true);
+                    return;
+                }
+
+                // Update camera (clamped so we don't show empty space)
+                const config = this.getLevelConfig(this.currentLevel);
+                const halfW = canvas.width / 2;
+                this.cameraX = Math.max(halfW, Math.min(this.car.x + config.cameraOffset, this.finishLine - halfW));
+
+                // Update HUD
+                document.getElementById('speed').textContent = Math.abs(Math.round(this.car.velocity * 5));
+                const progress = Math.round((this.car.x / this.finishLine) * 100);
+                document.getElementById('progress').textContent = Math.min(progress, 100);
+
+                // Draw sky (fixed to screen)
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#87CEEB');
+                gradient.addColorStop(1, '#E0F6FF');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Apply camera transform and draw world
+                ctx.save();
+                ctx.translate(-this.cameraX + halfW, 0);
+
+                this.terrain.draw(ctx);
+                this.drawTerrain();
+                this.drawFinishLine();
+                this.car.draw(ctx);
+
+                ctx.restore();
+
+                requestAnimationFrame(() => this.gameLoop());
+            }
+
+            drawTerrain() {
+                // Draw decorations on terrain
+                ctx.fillStyle = '#7A6B4D';
+                for (let i = 0; i < this.terrain.points.length; i += 8) {
+                    const p = this.terrain.points[i];
+                    ctx.fillRect(p.x - 5, p.y - 10, 10, 10);
+                }
+            }
+
+            drawFinishLine() {
+                ctx.save();
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([20, 20]);
+                
+                const finishY = this.terrain.getHeightAt(this.finishLine);
+                ctx.beginPath();
+                ctx.moveTo(this.finishLine, finishY - 100);
+                ctx.lineTo(this.finishLine, finishY + 100);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                ctx.fillRect(this.finishLine - 20, finishY - 150, 40, 300);
+                
+                ctx.restore();
+            }
+
+            endGame(won) {
+                this.gameRunning = false;
+                
+                if (won) {
+                    this.completedLevels.add(this.currentLevel);
+                    const levelTime = Math.round((Date.now() - this.levelStartTime) / 1000);
+                    document.getElementById('gameTime').textContent = levelTime;
+                    
+                    if (this.currentLevel < this.levels - 1) {
+                        document.getElementById('nextLevelText').textContent = 
+                            `Järgmine tase: TASE ${this.currentLevel + 2}`;
+                        document.getElementById('wonMenuButtons').innerHTML = 
+                            '<button onclick="game.nextLevel()">JÄRGMINE TASE</button>' +
+                            '<button onclick="game.backToLevelSelect()">TASEME VALIK</button>';
+                    } else {
+                        document.getElementById('nextLevelText').textContent = 
+                            'Kõik tasemed lõpetatud! 🎉';
+                        document.getElementById('wonMenuButtons').innerHTML = 
+                            '<button onclick="game.backToLevelSelect()">TASEME VALIK</button>' +
+                            '<button onclick="game.backToStart()">PEAMENÜÜ</button>';
+                    }
+                    
+                    this.showMenu('gameWonMenu');
+                } else {
+                    document.getElementById('gameOverLevel').textContent = this.currentLevel + 1;
+                    this.showMenu('gameOverMenu');
+                }
+            }
+
+            nextLevel() {
+                if (this.currentLevel < this.levels - 1) {
+                    this.hideMenu('gameWonMenu');
+                    this.loadLevel(this.currentLevel + 1);
+                } else {
+                    this.backToLevelSelect();
+                }
+            }
+
+            restartLevel() {
+                this.hideMenu('gameOverMenu');
+                this.loadLevel(this.currentLevel);
+            }
+
+            backToLevelSelect() {
+                this.hideMenu('gameWonMenu');
+                this.hideMenu('gameOverMenu');
+                this.initializeLevelSelect();
+                this.showMenu('levelSelectMenu');
+            }
+
+            backToStart() {
+                this.hideMenu('levelSelectMenu');
+                this.showMenu('startMenu');
+            }
+
+            togglePause() {
+                this.gamePaused = !this.gamePaused;
+            }
+
+            showMenu(menuId) {
+                document.getElementById(menuId).classList.add('active');
+                document.getElementById('overlay').classList.add('active');
+            }
+
+            hideMenu(menuId) {
+                document.getElementById(menuId).classList.remove('active');
+                document.getElementById('overlay').classList.remove('active');
+            }
+        }
+
+        const game = new Game();
+    </script>
+</body>
+</html>
